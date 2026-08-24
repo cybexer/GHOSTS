@@ -82,4 +82,5 @@ jobs:
             gh release view "$tag" >/dev/null 2>&1 && break
             sleep 2
           done
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Release $tag" --generate-notes
           gh release upload "$tag" ghost-client-universal-${{ matrix.runtime }}.zip
