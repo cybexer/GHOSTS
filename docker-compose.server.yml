@@ -1,0 +1,54 @@
+services:
+  ghosts-postgres:
+    image: postgres:16.8
+    environment:
+      POSTGRES_DB: ghosts
+      POSTGRES_USER: ghosts
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Scotty@@1!}
+    volumes:
+      - ghosts-postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ghosts"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ghosts-api:
+    image: ${GHOSTS_API_IMAGE:-ghcr.io/cybexer/ghosts/api}:${GHOSTS_VERSION:-latest}
+    depends_on:
+      ghosts-postgres:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_URLS: http://*:5000
+
+  ghosts-frontend:
+    build:
+      context: ./src/Ghosts.Frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - ghosts-api
+    ports:
+      - "4200:80"
+    environment:
+      API_URL: ${WEB_API_URL:-http://localhost:5000/api}
+      GRAFANA_URL: ${WEB_GRAFANA_URL:-http://localhost:3000}
+
+  ghosts-grafana:
+    image: grafana/grafana
+    depends_on:
+      ghosts-postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - ghosts-grafana-data:/var/lib/grafana
+      - ./configuration/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./configuration/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+
+volumes:
+  ghosts-postgres-data:
+  ghosts-grafana-data:
