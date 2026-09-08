@@ -61,6 +61,9 @@ jobs:
       - name: Package
         run: zip -r ghosts-client-universal-${{ matrix.runtime }}.zip publish/${{ matrix.runtime }}/
 
+      - name: Checksum
+        run: sha256sum ghosts-client-universal-${{ matrix.runtime }}.zip > ghosts-client-universal-${{ matrix.runtime }}.zip.sha256
+
       - name: Upload release asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -71,4 +74,4 @@ jobs:
             sleep 2
           done
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Release $tag" --generate-notes
-          gh release upload "$tag" ghosts-client-universal-${{ matrix.runtime }}.zip
+          gh release upload "$tag" ghosts-client-universal-${{ matrix.runtime }}.zip ghosts-client-universal-${{ matrix.runtime }}.zip.sha256
