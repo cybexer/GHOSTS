@@ -16,7 +16,9 @@ services:
       retries: 10
 
   ghosts-api:
-    image: ${GHOSTS_API_IMAGE:-ghcr.io/cybexer/ghosts/api}:${GHOSTS_VERSION:-latest}
+    build:
+      context: ./src
+      dockerfile: Dockerfile-api
     depends_on:
       ghosts-postgres:
         condition: service_healthy
