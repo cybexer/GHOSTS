@@ -41,11 +41,8 @@ jobs:
             docker-compose.server.yml \
             src/Ghosts.Frontend \
             configuration/grafana
-          sha256sum "ghosts-server-${{ github.ref_name }}.zip" > "ghosts-server-${{ github.ref_name }}.zip.sha256"
 
       - name: Upload server bundle
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.ref_name }}" \
-          "ghosts-server-${{ github.ref_name }}.zip" \
-          "ghosts-server-${{ github.ref_name }}.zip.sha256"
+        run: gh release upload "${{ github.ref_name }}" "ghosts-server-${{ github.ref_name }}.zip"
