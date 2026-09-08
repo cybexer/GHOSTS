@@ -39,6 +39,10 @@ jobs:
             -o "ghosts-server-${{ github.ref_name }}.zip" \
             "${{ github.ref_name }}" \
             docker-compose.server.yml \
+            src/Dockerfile-api \
+            src/Ghosts.Api \
+            src/Ghosts.Domain \
+            src/Ghosts.Animator \
             src/Ghosts.Frontend \
             configuration/grafana
 
