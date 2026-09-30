@@ -41,6 +41,7 @@ jobs:
             docker-compose.server.yml \
             src/Dockerfile-api \
             src/Ghosts.Api \
+            ':(exclude)src/Ghosts.Api/config/SeedData' \
             src/Ghosts.Domain \
             src/Ghosts.Animator \
             src/Ghosts.Frontend \
