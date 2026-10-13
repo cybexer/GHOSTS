@@ -153,7 +153,7 @@ internal static class Program
         Updates.Run();
 
         //local survey gathers information such as drives, accounts, logs, etc.
-        if (Configuration.Survey.IsEnabled)
+        if (Configuration.Survey?.IsEnabled == true)
         {
             _log.Trace("Survey enabled, initializing...");
             try
