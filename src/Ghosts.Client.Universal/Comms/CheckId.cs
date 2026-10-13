@@ -106,7 +106,7 @@ public class CheckId
 
         var fetchedId = string.Empty;
 
-        if (!Program.Configuration.Id.IsEnabled)
+        if (Program.Configuration.Id?.IsEnabled != true)
         {
             _log.Warn("ID retrieval is disabled in the configuration.");
             return fetchedId;
