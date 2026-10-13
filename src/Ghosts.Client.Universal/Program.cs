@@ -100,7 +100,7 @@ internal static class Program
         //do we have client id? or is this first run?
         var id = CheckId.Id;
         _log.Trace($"CheckID: {id}");
-        if (string.IsNullOrEmpty(id))
+        if (string.IsNullOrEmpty(id) && Configuration.Id.IsEnabled)
         {
             _log.Error("No client ID was returned; continuing startup and retrying registration every 5 minutes.");
             _ = Task.Run(async () =>
