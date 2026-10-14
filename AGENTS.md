@@ -12,7 +12,7 @@
 - For multi-file changes: Plan first, then implement.
 - Do not add features, abstractions, configurability, or speculative error handling unless asked.
 - Do not delete unrelated dead code. Mention it instead.
-- Rverify that you followed ALL of the CLAUDE.md rules before build.
+- Reverify that you followed ALL the CLAUDE.md rules before build.
 
 ## Repo Shape
 
@@ -49,9 +49,47 @@ Core components:
 
 ## Verification
 
-Before finishing:
-- Run the narrowest relevant build/test command.
-- For API changes: Run relevant .NET build/tests.
-- For frontend changes: Run `npm test` or `npm run build`.
-- For schema changes: Add an EF migration.
-- Report exactly what was run and what passed or failed.
+- Build the solution:
+
+  ```sh
+  dotnet build GHOSTS.sln
+
+- Run relevant tests:
+
+  dotnet test GHOSTS.sln
+
+- For release-packaging changes, reproduce the archive locally and inspect it with unzip -l or zipinfo.
+
+# GHOSTS agent instructions
+
+This is the GHOSTS repository. GHOSTS is a .NET server/client platform for user-simulation and cyber-exercise
+scenarios.
+
+## Working rules
+
+- Work in a separate Git worktree for every change. Do not modify the user's primary checkout.
+- Preserve unrelated local changes. Never reset, checkout, clean, or overwrite them.
+- Use `rg` for code search.
+- Use `apply_patch` for file edits.
+- Keep changes minimal; do not add abstractions or dependencies without a concrete need.
+- Before changing a release workflow, inspect the produced artifact contents, not only the source workflow.
+- Never publish releases, upload/delete GitHub assets, push branches, or modify external deployments unless the
+  user explicitly asks.
+
+## Server release packaging
+
+The server bundle is created by .github/workflows/release.yml with git archive.
+
+- src/Ghosts.Api/config/SeedData/seed.json is bootstrap/demo data.
+- It must not be included in public server release archives.
+- The application already skips seeding when that file is absent; do not replace it with an empty seed file.
+- Keep required runtime configuration, timelines, attack data, photos, and other non-seed assets in the release.
+- Verify this condition after any release workflow edit:
+  ! unzip -Z1 ghosts-server-*.zip | rg '/config/SeedData/'
+
+## Security
+
+- Never put passwords, API keys, connection strings, or tokens in source control, generated archives, logs, or
+  chat responses.
+- Use environment variables or deployment-local secret files for credentials.
+- Treat seed/demo data as potentially sensitive unless explicitly approved for distribution.
