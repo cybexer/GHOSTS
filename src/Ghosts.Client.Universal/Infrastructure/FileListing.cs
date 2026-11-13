@@ -34,7 +34,7 @@ public static class FileListing
         try
         {
             if (!File.Exists(_fileName))
-                File.Create(_fileName);
+                File.Create(_fileName).Dispose();
 
             if (!Monitor.IsEntered(_safetyLocked)) //checking if safety net is currently flushing cache
             {
@@ -64,7 +64,7 @@ public static class FileListing
     {
         if (!File.Exists(_fileName))
         {
-            File.Create(_fileName);
+            File.Create(_fileName).Dispose();
             return 0;
         }
 

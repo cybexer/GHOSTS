@@ -182,7 +182,8 @@ public class Orchestrator
         // The HandlerType enum name does not always match the handler class name (e.g. Command -> Cmd).
         var className = type == HandlerType.Command ? "Cmd" : type.ToString();
         var typeName = $"Ghosts.Client.Universal.Handlers.{className}";
-        var handlerType = Type.GetType(typeName);
+        // Some handler classes carry a Handler suffix (ExcelHandler, PowerPointHandler, LightWordHandler).
+        var handlerType = Type.GetType(typeName) ?? Type.GetType($"{typeName}Handler");
 
         if (handlerType == null)
         {
