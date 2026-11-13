@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: ghosts
       POSTGRES_USER: ghosts
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Scotty@@1!}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     volumes:
       - ghosts-postgres-data:/var/lib/postgresql/data
     ports:
@@ -17,8 +17,8 @@ services:
 
   ghosts-api:
     build:
-      context: ./src
-      dockerfile: Dockerfile-api
+      context: .
+      dockerfile: src/Dockerfile-api
     depends_on:
       ghosts-postgres:
         condition: service_healthy
@@ -26,6 +26,8 @@ services:
       - "5000:5000"
     environment:
       ASPNETCORE_URLS: http://*:5000
+      ConnectionStrings__DefaultConnection: ${GHOSTS_CONNECTION_STRING:?Set GHOSTS_CONNECTION_STRING}
+      InitSettings__AdminPassword: ${GHOSTS_ADMIN_PASSWORD:?Set GHOSTS_ADMIN_PASSWORD}
 
   ghosts-frontend:
     build:
