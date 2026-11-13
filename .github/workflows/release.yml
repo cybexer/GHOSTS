@@ -34,18 +34,27 @@ jobs:
 
       - name: Package server bundle
         run: |
-          git archive --format=zip \
+          mkdir -p "$RUNNER_TEMP/server-bundle"
+          git archive --format=tar \
             --prefix="ghosts-server-${{ github.ref_name }}/" \
-            -o "ghosts-server-${{ github.ref_name }}.zip" \
             "${{ github.ref_name }}" \
+            .dockerignore \
             docker-compose.server.yml \
             src/Dockerfile-api \
             src/Ghosts.Api \
             ':(exclude)src/Ghosts.Api/config/SeedData' \
+            ':(exclude)src/Ghosts.Api/.env.example' \
             src/Ghosts.Domain \
             src/Ghosts.Animator \
             src/Ghosts.Frontend \
-            configuration/grafana
+            schemas/scenario-document/v1 \
+            schemas/scenario-document/corpus \
+            configuration/grafana \
+            | tar -xf - -C "$RUNNER_TEMP/server-bundle"
+          appsettings="$RUNNER_TEMP/server-bundle/ghosts-server-${{ github.ref_name }}/src/Ghosts.Api/appsettings.json"
+          jq 'del(.ConnectionStrings.DefaultConnection, .InitSettings.AdminPassword, .TerrainProvider.Token)' "$appsettings" > "$appsettings.tmp"
+          mv "$appsettings.tmp" "$appsettings"
+          (cd "$RUNNER_TEMP/server-bundle" && zip -qr "$GITHUB_WORKSPACE/ghosts-server-${{ github.ref_name }}.zip" "ghosts-server-${{ github.ref_name }}")
 
       - name: Upload server bundle
         env:
