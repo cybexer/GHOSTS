@@ -71,7 +71,7 @@ jobs:
             -o publish/${{ matrix.runtime }}
 
       - name: Package
-        run: zip -r ghost-client-universal-${{ matrix.runtime }}.zip publish/${{ matrix.runtime }}/
+        run: zip -r ghosts-client-universal-${{ matrix.runtime }}.zip publish/${{ matrix.runtime }}/
 
       - name: Upload release asset
         env:
@@ -83,4 +83,4 @@ jobs:
             sleep 2
           done
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Release $tag" --generate-notes
-          gh release upload "$tag" ghost-client-universal-${{ matrix.runtime }}.zip
+          gh release upload "$tag" ghosts-client-universal-${{ matrix.runtime }}.zip
