@@ -46,8 +46,9 @@ public abstract class BaseHandler : IHandler
     }
 
     
-    // Do not use await RunOnce() - not needed, as this is in a task already
-    // Also, will prevents re-running in a loop
+    // Run() is already on its own task, so it blocks on RunOnce() instead of awaiting it.
+    // It must block: a RunOnce() that returns before its work is done (Task.Run, async) would
+    // otherwise be restarted at once in the loop, spawning tasks without end (Clicks, Watcher, Outlook).
     public void Run()
     {
         _log.Info($"{GetType().Name} executing for timeline {this.Timeline.Id} (loop={this.Handler.Loop})");
@@ -57,12 +58,12 @@ public abstract class BaseHandler : IHandler
             {
                 while (!this.Token.IsCancellationRequested)
                 {
-                    RunOnce();
+                    RunOnce().GetAwaiter().GetResult();
                 }
             }
             else
             {
-                RunOnce();
+                RunOnce().GetAwaiter().GetResult();
             }
 
             _log.Info($"{GetType().Name} finished successfully for timeline {this.Timeline.Id}");
