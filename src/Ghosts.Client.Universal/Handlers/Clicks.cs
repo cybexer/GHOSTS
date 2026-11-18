@@ -31,7 +31,9 @@ public class Clicks(Timeline entireTimeline, TimelineHandler timelineHandler, Ca
                 DoLeftMouseClick(pos.X, pos.Y);
 
                 _log.Trace($"Click: {pos.X}:{pos.Y}");
-                if (Token.WaitHandle.WaitOne(Jitter.Randomize(
+                // CommandArgs = [base ms, low jitter ms, high jitter ms] is optional: the shipped
+                // samples and ISA's templates leave it empty and pace clicks with DelayAfter alone.
+                if (timelineEvent.CommandArgs.Count >= 3 && Token.WaitHandle.WaitOne(Jitter.Randomize(
                     timelineEvent.CommandArgs[0],
                     timelineEvent.CommandArgs[1],
                     timelineEvent.CommandArgs[2]
