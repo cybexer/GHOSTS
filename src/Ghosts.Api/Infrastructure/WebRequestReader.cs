@@ -19,6 +19,8 @@ namespace Ghosts.Api.Infrastructure
             {
                 var m = new Machine
                 {
+                    // The id the client stored from an earlier check-in; Guid.Empty when absent or not a GUID.
+                    Id = Guid.TryParse(context.Request.Headers["ghosts-id"], out var id) ? id : Guid.Empty,
                     Name = context.Request.Headers["ghosts-name"],
                     FQDN = context.Request.Headers["ghosts-fqdn"],
                     Host = context.Request.Headers["ghosts-host"],

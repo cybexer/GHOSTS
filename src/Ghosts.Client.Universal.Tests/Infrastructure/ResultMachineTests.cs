@@ -68,6 +68,18 @@ public class ResultMachineTests
         Assert.NotEqual("-9", machine.ClientIp);
     }
 
+    [Fact]
+    public void Fqdn_IsThisMachinesNameNotLocalhost()
+    {
+        var machine = new ResultMachine();
+        var shortName = Dns.GetHostName().Split('.')[0].ToLower();
+
+        // Linux answers a "localhost" lookup with "localhost", so every Linux client sent the same FQDN.
+        Assert.NotEqual("localhost", machine.FQDN);
+        Assert.StartsWith(shortName, machine.FQDN);
+        Assert.StartsWith(shortName, machine.ResolvedHost);
+    }
+
     private static IPAddress ResolveHostname()
     {
         try
