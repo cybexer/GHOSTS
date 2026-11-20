@@ -34,17 +34,15 @@ public class ClientTimelineService(IMachineService machineService, IMachineTimel
 
             _log.Info($"Request by {id}");
 
-            var machine = WebRequestReader.GetMachine(context);
+            // The same lookup as every other check-in. Creating a record from the id alone added a second
+            // record for a machine whose id the server did not know but whose name it did.
+            var found = await machineService.FindOrCreate(context, ct);
+            if (!found.IsValid())
+            {
+                return (false, null, found.Error);
+            }
 
-            if (!string.IsNullOrEmpty(id))
-            {
-                machine.Id = new Guid(id);
-                await machineService.CreateAsync(machine, ct); // ensure machine is tracked
-            }
-            else if (!machine.IsValid())
-            {
-                return (false, null, "Invalid machine request");
-            }
+            var machine = found.Machine;
 
             Timeline timeline;
             try

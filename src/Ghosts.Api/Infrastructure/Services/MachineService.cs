@@ -54,46 +54,68 @@ namespace Ghosts.Api.Infrastructure.Services
             return list;
         }
 
+        private static readonly SemaphoreSlim CreateLock = new(1, 1);
+
         public async Task<FindMachineResponse> FindOrCreate(HttpContext httpContext, CancellationToken ct)
         {
-            var machineResponse = new FindMachineResponse();
             var httpHeadersMachine = WebRequestReader.GetMachine(httpContext);
-            var m = httpHeadersMachine;
+            var matchBy = Program.ApplicationSettings.MatchMachinesBy;
+            var m = await FindCheckInAsync(_context.Machines, httpHeadersMachine, matchBy, ct);
 
-            if (m.Id == Guid.Empty)
+            if (m is null)
             {
-                m = await FindByValue(httpHeadersMachine, ct);
-            }
-
-            if (m is null || !m.IsValid())
-            {
-                m = httpHeadersMachine;
-
-                m.History.Add(new Machine.MachineHistoryItem { Type = Machine.MachineHistoryItem.HistoryType.Created });
-                await CreateAsync(m, ct);
-
-                if (!m.IsValid())
+                // Two check-ins from a new machine at once (its clientid request and its socket's SendId) both
+                // found nothing and both created a record. Look again under a lock before creating.
+                // ponytail: one lock per process; several API instances on one database would need a unique index.
+                await CreateLock.WaitAsync(ct);
+                try
                 {
-                    machineResponse.Error = "Invalid machine request";
+                    m = await FindCheckInAsync(_context.Machines, httpHeadersMachine, matchBy, ct);
+                    if (m is null) return await CreateFromCheckIn(httpHeadersMachine, ct);
                 }
-                else
+                finally
                 {
-                    m.History.Add(new Machine.MachineHistoryItem { Type = Machine.MachineHistoryItem.HistoryType.RequestedId });
-                    await UpdateAsync(m, ct);
-
-                    machineResponse.Machine = m;
+                    CreateLock.Release();
                 }
             }
-            else
-            {
-                machineResponse.Machine = m;
 
-                m.UpdateFromCheckIn(httpHeadersMachine);
-                _context.Entry(m).State = EntityState.Modified;
-                await _context.SaveChangesAsync(ct);
+            m.UpdateFromCheckIn(httpHeadersMachine);
+            _context.Entry(m).State = EntityState.Modified;
+            await _context.SaveChangesAsync(ct);
+
+            return new FindMachineResponse { Machine = m };
+        }
+
+        private async Task<FindMachineResponse> CreateFromCheckIn(Machine m, CancellationToken ct)
+        {
+            m.History.Add(new Machine.MachineHistoryItem { Type = Machine.MachineHistoryItem.HistoryType.Created });
+            await CreateAsync(m, ct);
+
+            if (!m.IsValid())
+            {
+                return new FindMachineResponse { Error = "Invalid machine request" };
             }
 
-            return machineResponse;
+            m.History.Add(new Machine.MachineHistoryItem { Type = Machine.MachineHistoryItem.HistoryType.RequestedId });
+            await UpdateAsync(m, ct);
+
+            return new FindMachineResponse { Machine = m };
+        }
+
+        /// <summary>
+        /// The machine a checking-in client is: the record with the id the client sent (ghosts-id), otherwise
+        /// <see cref="FindMatchAsync"/>. Without the id lookup every check-in matched by name, so the client's own
+        /// record lost to a duplicate of the same name.
+        /// </summary>
+        public static async Task<Machine> FindCheckInAsync(IQueryable<Machine> machines, Machine machine, string matchBy, CancellationToken ct)
+        {
+            if (machine.Id != Guid.Empty)
+            {
+                var byId = await machines.FirstOrDefaultAsync(o => o.Id == machine.Id, ct);
+                if (byId != null) return byId;
+            }
+
+            return await FindMatchAsync(machines, machine, matchBy, ct);
         }
 
         /// <summary>
@@ -137,9 +159,6 @@ namespace Ghosts.Api.Infrastructure.Services
 
             return null;
         }
-
-        private Task<Machine> FindByValue(Machine machine, CancellationToken ct) =>
-            FindMatchAsync(_context.Machines, machine, Program.ApplicationSettings.MatchMachinesBy, ct);
 
         public List<MachineListItem> GetList()
         {
