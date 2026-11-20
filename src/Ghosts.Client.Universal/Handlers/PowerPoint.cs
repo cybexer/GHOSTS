@@ -45,15 +45,16 @@ public class PowerPoint(Timeline entireTimeline, TimelineHandler timelineHandler
 
             foreach (var timelineEvent in handler.TimeLineEvents)
             {
+                dynamic officeApplication = null;
+                dynamic document = null;
                 try
                 {
                     _log.Trace($"PowerPoint event - {timelineEvent}");
                     WorkingHours.Is(handler);
 
                     var applicationType = Type.GetTypeFromProgID("PowerPoint.Application");
-                    dynamic officeApplication = Activator.CreateInstance(applicationType);
+                    officeApplication = Activator.CreateInstance(applicationType);
                     officeApplication.Visible = true;
-                    dynamic document = null;
 
                     if (timelineEvent.DelayBeforeActual > 0)
                     {
@@ -246,9 +247,6 @@ public class PowerPoint(Timeline entireTimeline, TimelineHandler timelineHandler
                         if (Token.WaitHandle.WaitOne(timelineEvent.DelayAfterActual.GetSafeSleepTime(writeSleep))) Token.ThrowIfCancellationRequested();
                     }
 
-                    // close ppt and dispose reference
-                    officeApplication.Quit();
-
                 }
                 catch (Exception e)
                 {
@@ -262,6 +260,7 @@ public class PowerPoint(Timeline entireTimeline, TimelineHandler timelineHandler
                 }
                 finally
                 {
+                    OfficeHelpers.Shutdown(document, officeApplication);
                     if (timelineEvent.DelayAfterActual > 0 && jitterFactor > 0)
                     {
                         //sleep and leave the app open
