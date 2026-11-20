@@ -45,15 +45,16 @@ public class Excel(Timeline entireTimeline, TimelineHandler timelineHandler, Can
 
             foreach (var timelineEvent in handler.TimeLineEvents)
             {
+                dynamic officeApplication = null;
+                dynamic document = null;
                 try
                 {
                     _log.Trace($"Excel event - {timelineEvent}");
                     WorkingHours.Is(handler);
 
                     var applicationType = Type.GetTypeFromProgID("Excel.Application");
-                    dynamic officeApplication = Activator.CreateInstance(applicationType);
+                    officeApplication = Activator.CreateInstance(applicationType);
                     officeApplication.Visible = true;
-                    dynamic document = null;
 
                     if (timelineEvent.DelayBeforeActual > 0)
                     {
@@ -253,10 +254,6 @@ public class Excel(Timeline entireTimeline, TimelineHandler timelineHandler, Can
                         if (Token.WaitHandle.WaitOne(timelineEvent.DelayAfterActual.GetSafeSleepTime(writeSleep))) Token.ThrowIfCancellationRequested();
                     }
 
-                    // close excel
-                    officeApplication.Quit();
-
-                    GC.Collect();
                 }
                 catch (Exception e)
                 {
@@ -270,6 +267,7 @@ public class Excel(Timeline entireTimeline, TimelineHandler timelineHandler, Can
                 }
                 finally
                 {
+                    OfficeHelpers.Shutdown(document, officeApplication);
                     if (timelineEvent.DelayAfterActual > 0 && jitterFactor > 0)
                     {
                         //sleep and leave the app open

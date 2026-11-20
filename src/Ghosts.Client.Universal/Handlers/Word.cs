@@ -46,6 +46,8 @@ public class Word(Timeline entireTimeline, TimelineHandler timelineHandler, Canc
 
             foreach (var timelineEvent in handler.TimeLineEvents)
             {
+                dynamic officeApplication = null;
+                dynamic document = null;
                 try
                 {
                     _log.Trace($"Word event - {timelineEvent}");
@@ -53,9 +55,8 @@ public class Word(Timeline entireTimeline, TimelineHandler timelineHandler, Canc
 
 
                     var applicationType = Type.GetTypeFromProgID("Word.Application");
-                    dynamic officeApplication = Activator.CreateInstance(applicationType);
+                    officeApplication = Activator.CreateInstance(applicationType);
                     officeApplication.Visible = true;
-                    dynamic document = null;
                     if (timelineEvent.DelayBeforeActual > 0)
                     {
                         if (jitterFactor > 0)
@@ -261,10 +262,6 @@ public class Word(Timeline entireTimeline, TimelineHandler timelineHandler, Canc
                         if (Token.WaitHandle.WaitOne(timelineEvent.DelayAfterActual.GetSafeSleepTime(writeSleep))) Token.ThrowIfCancellationRequested();
                     }
 
-                    //document.Dispose();
-                    officeApplication.Quit();
-
-                    GC.Collect();
                 }
                 catch (ThreadAbortException e)
                 {
@@ -284,6 +281,7 @@ public class Word(Timeline entireTimeline, TimelineHandler timelineHandler, Canc
                 }
                 finally
                 {
+                    OfficeHelpers.Shutdown(document, officeApplication);
                     if (timelineEvent.DelayAfterActual > 0 && jitterFactor > 0)
                     {
                         //sleep and leave the app open
