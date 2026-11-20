@@ -59,29 +59,25 @@ namespace Ghosts.Domain
             Name = name;
         }
 
+        /// <summary>
+        /// The machine's own canonical name. Resolved from the hostname, not from "localhost": Windows
+        /// answers "localhost" with the machine's FQDN, but Linux answers it from /etc/hosts as
+        /// "localhost", which made every Linux client report the same FQDN.
+        /// </summary>
         private static string GetHost()
         {
+            var host = Dns.GetHostName();
             try
             {
-                return Dns.GetHostEntry("localhost").HostName.ToLower();
+                return Dns.GetHostEntry(host).HostName.ToLower();
             }
             catch
             {
-                return string.Empty;
+                return host.ToLower();
             }
         }
 
-        private static string GetResolvedHost()
-        {
-            try
-            {
-                return Dns.GetHostEntry("localhost").HostName.ToLower();
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
+        private static string GetResolvedHost() => GetHost();
 
         private static string GetDomain()
         {
