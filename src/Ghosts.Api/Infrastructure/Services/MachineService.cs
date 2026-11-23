@@ -29,6 +29,7 @@ namespace Ghosts.Api.Infrastructure.Services
         Task<List<Machine.MachineHistoryItem>> GetMachineHistory(Guid model, CancellationToken ct);
         Task<List<HistoryTimeline>> GetActivity(Guid id, int skip, int take, CancellationToken ct);
         Task AddActivity(Guid id, HistoryTimeline historyTimeline, CancellationToken ct);
+        Task<List<HandlerActivity>> GetHandlerActivity(int hours, int bucketMinutes, CancellationToken ct);
     }
 
     public class MachineService(ApplicationDbContext context, IHubContext<ActivityHub> activityHubContext, INpcService npcService) : IMachineService
@@ -339,6 +340,37 @@ namespace Ghosts.Api.Infrastructure.Services
                 null, ct);
         }
 
+        public async Task<List<HandlerActivity>> GetHandlerActivity(int hours, int bucketMinutes, CancellationToken ct)
+        {
+            var since = DateTime.UtcNow.AddHours(-hours);
+            var bucketTicks = TimeSpan.FromMinutes(bucketMinutes).Ticks;
+            var minutes = await _context.HistoryTimeline
+                .Where(o => o.CreatedUtc >= since && o.Handler != null)
+                .Join(_context.Machines.Where(m => m.Status == StatusType.Active), o => o.MachineId, m => m.Id, (o, _) => o)
+                .GroupBy(o => new { o.Handler, o.MachineId, o.CreatedUtc.Year, o.CreatedUtc.Month, o.CreatedUtc.Day, o.CreatedUtc.Hour, o.CreatedUtc.Minute })
+                .Select(g => new { g.Key, Events = g.Count() })
+                .ToListAsync(ct);
+
+            return minutes
+                .Select(m => new
+                {
+                    m.Key.Handler,
+                    m.Key.MachineId,
+                    m.Events,
+                    StartUtc = BucketStart(new DateTime(m.Key.Year, m.Key.Month, m.Key.Day, m.Key.Hour, m.Key.Minute, 0, DateTimeKind.Utc), bucketTicks)
+                })
+                .GroupBy(m => m.Handler)
+                .Select(handler => new HandlerActivity(
+                    handler.Key,
+                    handler.Sum(m => m.Events),
+                    handler.Select(m => m.MachineId).Distinct().Count(),
+                    handler.GroupBy(m => m.StartUtc).OrderBy(b => b.Key).Select(b => new HandlerActivityBucket(b.Key, b.Sum(m => m.Events))).ToList()))
+                .OrderByDescending(h => h.Events)
+                .ToList();
+        }
+
+        private static DateTime BucketStart(DateTime minute, long bucketTicks) =>
+            new(minute.Ticks - (minute.Ticks - DateTime.UnixEpoch.Ticks) % bucketTicks, DateTimeKind.Utc);
 
         private void AddToGroups(Machine model, CancellationToken ct)
         {

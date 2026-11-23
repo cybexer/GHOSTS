@@ -30,6 +30,10 @@ namespace Ghosts.Api.Infrastructure.Models
         public string Stats { get; set; }
     }
 
+    public record HandlerActivityBucket(DateTime StartUtc, int Events);
+
+    public record HandlerActivity(string Handler, int Events, int Machines, List<HandlerActivityBucket> Buckets);
+
     [Table("history_timeline")]
     public class HistoryTimeline
     {

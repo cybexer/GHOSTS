@@ -118,6 +118,22 @@ namespace Ghosts.Api.Controllers.Api
         }
 
         /// <summary>
+        /// Counts the activity of active machines per handler and time bucket
+        /// </summary>
+        /// <param name="hours">How many hours back to count</param>
+        /// <param name="bucketMinutes">Bucket size in minutes</param>
+        /// <param name="ct">Cancellation Token</param>
+        /// <returns>Event and machine counts per handler, with event counts per bucket</returns>
+        [SwaggerOperation("MachinesGetHandlerActivity")]
+        [HttpGet("activity/handlers")]
+        public async Task<IActionResult> HandlerActivity(int hours, int bucketMinutes, CancellationToken ct)
+        {
+            if (hours < 1 || bucketMinutes < 1) return BadRequest("hours and bucketMinutes must be positive");
+
+            return Ok(await _service.GetHandlerActivity(hours, bucketMinutes, ct));
+        }
+
+        /// <summary>
         /// Lists the activity for a given machine
         /// </summary>
         /// <param name="id">The machine to get activity for</param>
