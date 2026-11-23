@@ -35,6 +35,19 @@ public class MachineCheckInTests
         Assert.Single(results.Distinct());
     }
 
+    [Fact]
+    public async Task Check_in_without_machine_headers_is_refused_and_stores_nothing()
+    {
+        Program.ApplicationSettings ??= new ApplicationSettings();
+        await using var context = TestDb.Named($"checkin-{Guid.NewGuid()}");
+        var service = new MachineService(context, new Mock<IHubContext<ActivityHub>>().Object, new Mock<INpcService>().Object);
+
+        var response = await service.FindOrCreate(new DefaultHttpContext(), default);
+
+        Assert.False(response.IsValid());
+        Assert.Equal(0, await context.Machines.CountAsync());
+    }
+
     private static HttpContext CheckIn(string name)
     {
         var context = new DefaultHttpContext();
