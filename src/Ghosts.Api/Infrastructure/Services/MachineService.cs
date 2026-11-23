@@ -89,13 +89,15 @@ namespace Ghosts.Api.Infrastructure.Services
 
         private async Task<FindMachineResponse> CreateFromCheckIn(Machine m, CancellationToken ct)
         {
-            m.History.Add(new Machine.MachineHistoryItem { Type = Machine.MachineHistoryItem.HistoryType.Created });
-            await CreateAsync(m, ct);
-
+            // Check before saving: a request without the machine headers (a connectivity probe) used to leave an
+            // empty record behind for every request.
             if (!m.IsValid())
             {
                 return new FindMachineResponse { Error = "Invalid machine request" };
             }
+
+            m.History.Add(new Machine.MachineHistoryItem { Type = Machine.MachineHistoryItem.HistoryType.Created });
+            await CreateAsync(m, ct);
 
             m.History.Add(new Machine.MachineHistoryItem { Type = Machine.MachineHistoryItem.HistoryType.RequestedId });
             await UpdateAsync(m, ct);
