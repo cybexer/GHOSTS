@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Ghosts.Client.Universal.Infrastructure;
 using Ghosts.Domain;
 using Ghosts.Domain.Code;
+using Ghosts.Domain.Messages.MesssagesForServer;
 using Newtonsoft.Json;
 using Renci.SshNet;
 
@@ -43,7 +44,7 @@ namespace Ghosts.Client.Universal.Handlers;
                         }
                         catch (Exception e)
                         {
-                            _log.Error(e);
+                            ReportError(Handler.HandlerType.ToString(), ErrorClassifier.FromException(e, ErrorCode.CredentialsMissing), e.Message, v1.ToString());
                         }
                     }
 
@@ -117,7 +118,7 @@ namespace Ghosts.Client.Universal.Handlers;
 
                 if (_currentCreds == null)
                 {
-                    _log.Error("SSH:: No credentials supplied, either CredentialsFile or Credentials must be supplied in handler args, exiting.");
+                    ReportError(Handler.HandlerType.ToString(), ErrorCode.CredentialsMissing, "No credentials supplied, either CredentialsFile or Credentials must be supplied in handler args");
                     return Task.CompletedTask;
                 }
 
@@ -187,7 +188,7 @@ namespace Ghosts.Client.Universal.Handlers;
                     }
                     catch (Exception e)
                     {
-                        _log.Error(e);
+                        ReportError(Handler.HandlerType.ToString(), ErrorClassifier.FromException(e, ErrorCode.ConnectionFailed), e.Message, hostIp);
                         return;
                     }
 

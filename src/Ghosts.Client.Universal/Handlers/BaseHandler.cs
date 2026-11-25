@@ -1,10 +1,13 @@
 ﻿// Copyright 2017 Carnegie Mellon University. All Rights Reserved. See LICENSE.md file for terms.
 
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using Ghosts.Domain;
+using Ghosts.Client.Universal.Infrastructure;
 using Ghosts.Domain.Code;
+using Ghosts.Domain.Messages.MesssagesForServer;
 using Newtonsoft.Json;
 using NLog;
 
@@ -21,6 +24,8 @@ public abstract class BaseHandler : IHandler
     private static readonly Logger _timelineLog = LogManager.GetLogger("TIMELINE");
     internal static readonly Logger _log = LogManager.GetCurrentClassLogger();
     internal static readonly Random _random = new();
+    private static readonly ConcurrentDictionary<string, DateTime> _lastErrorSent = new();
+    internal static readonly TimeSpan ErrorThrottle = TimeSpan.FromMinutes(5);
 
     public int JitterFactor = 0;
     protected readonly TimelineHandler Handler;
@@ -76,6 +81,7 @@ public abstract class BaseHandler : IHandler
         {
             _log.Error($"{GetType().Name} failed for timeline {this.Timeline.Id}: {e.Message}");
             _log.Debug(e);
+            ReportError(this.Handler.HandlerType.ToString(), ErrorClassifier.FromException(e, ErrorCode.HandlerCrashed), e.Message);
             throw;
         }
     }
@@ -101,6 +107,32 @@ public abstract class BaseHandler : IHandler
             });
 
         _timelineLog.Info($"TIMELINE|{DateTime.UtcNow.ToString("MM/dd/yyyy HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture)}Z|{o}");
+    }
+
+    /// <summary>
+    /// Sends a handler error to the server. The same handler, code and target is sent at most once per ErrorThrottle,
+    /// so a handler failing on every loop does not flood the server.
+    /// </summary>
+    public static void ReportError(string handler, ErrorCode code, string message, string target = null)
+    {
+        _log.Error($"{handler} {code}: {message} {target}");
+        if (!ShouldSendError($"{handler}|{code}|{target}", DateTime.UtcNow)) return;
+
+        var o = JsonConvert.SerializeObject(new ResultError { Handler = handler, Code = code, Message = message, Target = target },
+            Formatting.None,
+            new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore
+            });
+
+        _timelineLog.Info($"ERROR|{DateTime.UtcNow.ToString("MM/dd/yyyy HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture)}Z|{o}");
+    }
+
+    internal static bool ShouldSendError(string key, DateTime now)
+    {
+        if (_lastErrorSent.TryGetValue(key, out var last) && now - last < ErrorThrottle) return false;
+        _lastErrorSent[key] = now;
+        return true;
     }
 
     public bool CheckProbabilityVar(string name, int value)

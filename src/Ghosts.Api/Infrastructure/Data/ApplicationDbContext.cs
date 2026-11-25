@@ -35,6 +35,7 @@ namespace Ghosts.Api.Infrastructure.Data
         public DbSet<Machine.MachineHistoryItem> HistoryMachine { get; set; }
         public DbSet<HistoryHealth> HistoryHealth { get; set; }
         public DbSet<HistoryTimeline> HistoryTimeline { get; set; }
+        public DbSet<HistoryError> HistoryErrors { get; set; }
         public DbSet<HistoryTrackable> HistoryTrackables { get; set; }
         public DbSet<MachineTimeline> MachineTimelines { get; set; }
         public DbSet<SavedTimeline> SavedTimelines { get; set; }
@@ -188,6 +189,9 @@ namespace Ghosts.Api.Infrastructure.Data
             modelBuilder.Entity<HistoryHealth>().HasIndex(o => new { o.CreatedUtc });
 
             modelBuilder.Entity<HistoryTimeline>().HasIndex(o => new { o.CreatedUtc });
+
+            modelBuilder.Entity<HistoryError>().HasIndex(o => new { o.CreatedUtc });
+            modelBuilder.Entity<HistoryError>().HasIndex(o => new { o.MachineId });
             modelBuilder.Entity<HistoryTimeline>().HasIndex(o => new { o.Tags });
 
             modelBuilder.Entity<MachineUpdate>().HasIndex(o => new { o.CreatedUtc });

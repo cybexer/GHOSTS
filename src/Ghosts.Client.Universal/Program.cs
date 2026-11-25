@@ -181,6 +181,8 @@ internal static class Program
             _log.Trace("Health checks disabled, continuing.");
         }
 
+        Health.SessionWatch.Start();
+
         if (Configuration.HandlersIsEnabled)
         {
             _log.Trace("Handlers enabled, initializing...");

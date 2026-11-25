@@ -99,10 +99,6 @@ public class FtpSupport : SshSftpSupport
         {
             throw; //pass up
         }
-        catch (Exception e)
-        {
-            Log.Error(e);
-        }
     }
 
 
@@ -173,10 +169,6 @@ public class FtpSupport : SshSftpSupport
         {
             throw; //pass up
         }
-        catch (Exception e)
-        {
-            Log.Error(e);
-        }
     }
 
 
@@ -240,10 +232,6 @@ public class FtpSupport : SshSftpSupport
         catch (ThreadAbortException)
         {
             throw; //pass up
-        }
-        catch (Exception e)
-        {
-            Log.Error(e);
         }
     }
 
