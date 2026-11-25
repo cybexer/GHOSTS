@@ -124,6 +124,7 @@ namespace Ghosts.Api.Infrastructure.Services
             var histories = new List<Machine.MachineHistoryItem>();
             var timelines = new List<HistoryTimeline>();
             var health = new List<HistoryHealth>();
+            var historyErrors = new List<HistoryError>();
             var trackables = new List<HistoryTrackable>();
 
             //clients can send up a "create webhook" payload
@@ -279,6 +280,17 @@ namespace Ghosts.Api.Infrastructure.Services
                                         CreatedUtc = time
                                     });
                                     break;
+                                case "ERROR":
+                                    historyErrors.Add(new HistoryError
+                                    {
+                                        MachineId = machine.Id,
+                                        Handler = data.Handler,
+                                        Code = data.Code,
+                                        Message = data.Message,
+                                        Target = data.Target,
+                                        CreatedUtc = time
+                                    });
+                                    break;
                                 case "WEBHOOKCREATE":
                                     try
                                     {
@@ -331,6 +343,19 @@ namespace Ghosts.Api.Infrastructure.Services
             if (health.Count > 0)
             {
                 await context.HistoryHealth.AddRangeAsync(health);
+                try
+                {
+                    await context.SaveChangesAsync();
+                }
+                catch (Exception e)
+                {
+                    _log.Error(e);
+                }
+            }
+
+            if (historyErrors.Count > 0)
+            {
+                await context.HistoryErrors.AddRangeAsync(historyErrors);
                 try
                 {
                     await context.SaveChangesAsync();

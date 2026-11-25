@@ -134,6 +134,36 @@ namespace Ghosts.Api.Controllers.Api
         }
 
         /// <summary>
+        /// Summarizes the handler errors of active machines: per machine, handler and error code, the latest message, count and last time
+        /// </summary>
+        /// <param name="minutes">How many minutes back to look</param>
+        /// <param name="ct">Cancellation Token</param>
+        [SwaggerOperation("MachinesGetErrorSummary")]
+        [HttpGet("errors/summary")]
+        public async Task<IActionResult> ErrorSummary(int minutes, CancellationToken ct)
+        {
+            if (minutes < 1) return BadRequest("minutes must be positive");
+
+            return Ok(await _service.GetErrorSummary(minutes, ct));
+        }
+
+        /// <summary>
+        /// Lists the handler errors for a given machine, newest first
+        /// </summary>
+        /// <param name="id">The machine to get errors for</param>
+        /// <param name="skip">How many records to skip for pagination</param>
+        /// <param name="take">How many records to return</param>
+        /// <param name="ct">Cancellation Token</param>
+        [SwaggerOperation("MachinesGetErrorsById")]
+        [HttpGet("{id:guid}/errors")]
+        public async Task<IActionResult> Errors([FromRoute] Guid id, int skip, int take, CancellationToken ct)
+        {
+            if (id == Guid.Empty) return BadRequest();
+
+            return Ok(await _service.GetErrors(id, skip, take, ct));
+        }
+
+        /// <summary>
         /// Lists the activity for a given machine
         /// </summary>
         /// <param name="id">The machine to get activity for</param>

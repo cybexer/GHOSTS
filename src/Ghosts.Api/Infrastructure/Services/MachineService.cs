@@ -30,6 +30,8 @@ namespace Ghosts.Api.Infrastructure.Services
         Task<List<HistoryTimeline>> GetActivity(Guid id, int skip, int take, CancellationToken ct);
         Task AddActivity(Guid id, HistoryTimeline historyTimeline, CancellationToken ct);
         Task<List<HandlerActivity>> GetHandlerActivity(int hours, int bucketMinutes, CancellationToken ct);
+        Task<List<HistoryError>> GetErrors(Guid id, int skip, int take, CancellationToken ct);
+        Task<List<MachineErrorSummary>> GetErrorSummary(int minutes, CancellationToken ct);
     }
 
     public class MachineService(ApplicationDbContext context, IHubContext<ActivityHub> activityHubContext, INpcService npcService) : IMachineService
@@ -371,6 +373,32 @@ namespace Ghosts.Api.Infrastructure.Services
                     handler.Select(m => m.MachineId).Distinct().Count(),
                     handler.GroupBy(m => m.StartUtc).OrderBy(b => b.Key).Select(b => new HandlerActivityBucket(b.Key, b.Sum(m => m.Events))).ToList()))
                 .OrderByDescending(h => h.Events)
+                .ToList();
+        }
+
+        public async Task<List<HistoryError>> GetErrors(Guid id, int skip, int take, CancellationToken ct)
+        {
+            if (take < 1)
+                take = 25;
+
+            return await _context.HistoryErrors.Where(o => o.MachineId == id)
+                .OrderByDescending(o => o.CreatedUtc).Skip(skip).Take(take).ToListAsync(ct);
+        }
+
+        public async Task<List<MachineErrorSummary>> GetErrorSummary(int minutes, CancellationToken ct)
+        {
+            var since = DateTime.UtcNow.AddMinutes(-minutes);
+            // clients send each handler+code+target at most every 5 minutes, so the window stays small enough to group in memory
+            var errors = await _context.HistoryErrors
+                .Where(o => o.CreatedUtc >= since)
+                .Join(_context.Machines.Where(m => m.Status == StatusType.Active), o => o.MachineId, m => m.Id, (o, _) => o)
+                .OrderByDescending(o => o.CreatedUtc)
+                .ToListAsync(ct);
+
+            return errors
+                .GroupBy(o => (o.MachineId, o.Handler, o.Code))
+                .Select(g => new MachineErrorSummary(g.Key.MachineId, g.Key.Handler, g.Key.Code, g.First().Message, g.First().Target, g.Count(), g.First().CreatedUtc))
+                .OrderByDescending(o => o.LastSeenUtc)
                 .ToList();
         }
 

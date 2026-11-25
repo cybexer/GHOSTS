@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using Ghosts.Client.Universal.Infrastructure;
 using Ghosts.Domain;
 using Ghosts.Domain.Code;
+using Ghosts.Domain.Messages.MesssagesForServer;
 using Newtonsoft.Json;
 
 using System.Text;
@@ -79,7 +80,7 @@ public class Rdp(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
                     }
                     catch (Exception e)
                     {
-                        _log.Error(e);
+                        ReportError(Handler.HandlerType.ToString(), ErrorClassifier.FromException(e, ErrorCode.CredentialsMissing), e.Message, credFileArg.ToString());
                     }
                 }
 
@@ -133,7 +134,7 @@ public class Rdp(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
 
             if (_currentCreds == null)
             {
-                _log.Error("RDP:: No credentials supplied, either CredentialsFile or Credentials must be supplied in handler args, exiting.");
+                ReportError(Handler.HandlerType.ToString(), ErrorCode.CredentialsMissing, "No credentials supplied, either CredentialsFile or Credentials must be supplied in handler args");
                 return Task.CompletedTask;
             }
 
@@ -207,7 +208,7 @@ public class Rdp(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
 
         if (username == null || password == null)
         {
-            _log.Error($"RDP:: Missing username or password for credential key '{credKey}', skipping.");
+            ReportError(Handler.HandlerType.ToString(), ErrorCode.CredentialsMissing, $"Missing username or password for credential key '{credKey}'", target);
             return;
         }
 
@@ -230,21 +231,44 @@ public class Rdp(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
 
             if (process == null)
             {
-                _log.Error($"RDP:: Failed to start RDP process for target {target}");
+                ReportError(Handler.HandlerType.ToString(), ErrorCode.DependencyMissing, "Neither xfreerdp nor rdesktop found", target);
                 return;
+            }
+
+            // Read the client output: it holds the reason when the connection fails, and unread pipes can block the client.
+            var output = new StringBuilder();
+            var watchExit = process.StartInfo.RedirectStandardError;
+            if (watchExit)
+            {
+                DataReceivedEventHandler append = (_, a) => { if (a.Data != null) lock (output) output.AppendLine(a.Data); };
+                process.OutputDataReceived += append;
+                process.ErrorDataReceived += append;
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
             }
 
             _log.Trace($"RDP:: Connected to {target}, maintaining session for {_executionTime}ms");
 
             // Maintain the session for the configured execution time, sleeping in intervals
             var totalTime = 0;
-            while (totalTime < _executionTime)
+            while (totalTime < _executionTime && !(watchExit && process.HasExited))
             {
                 Token.ThrowIfCancellationRequested();
                 var sleepTime = Jitter.JitterFactorDelay(_mouseSleepTime, _jitterFactor);
                 if (sleepTime <= 0) sleepTime = 1000;
                 if (Token.WaitHandle.WaitOne(sleepTime)) Token.ThrowIfCancellationRequested();
                 totalTime += sleepTime;
+            }
+
+            // The client only exits on its own before the execution time when the session failed or was ended remotely.
+            if (watchExit && process.HasExited)
+            {
+                process.WaitForExit(); // flushes the async output readers
+                string text;
+                lock (output) text = output.ToString();
+                var code = ErrorClassifier.FromText(text) ?? ErrorCode.ConnectionFailed;
+                ReportError(Handler.HandlerType.ToString(), code, $"RDP client exited with code {process.ExitCode}: {Tail(text, 500)}", target);
+                return;
             }
 
             Report(new ReportItem { Handler = Handler.HandlerType.ToString(), Command = target, Arg = credKey, Trackable = timelineEvent.TrackableId });
@@ -274,6 +298,9 @@ public class Rdp(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
             process?.Dispose();
         }
     }
+
+    private static string Tail(string text, int length) =>
+        text.Length <= length ? text.Trim() : text[^length..].Trim();
 
     private static Process StartWindowsRdp(string target)
     {
@@ -380,6 +407,13 @@ public class Rdp(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
                 var sleepTime = Jitter.JitterFactorDelay(_mouseSleepTime, JitterFactor);
                 if (Token.WaitHandle.WaitOne(sleepTime)) Token.ThrowIfCancellationRequested();  
                 totalTime += sleepTime;
+                winHandle = Winuser.FindWindow("TscShellContainerClass", caption);
+                if (winHandle == IntPtr.Zero)
+                {
+                    // the session was ended from the other side, e.g. another user connected
+                    ReportRdpFailure(au, "Remote desktop session ended");
+                    return;
+                }
                 //move the mouse
                 Winuser.SetForegroundWindow(winHandle);
                 Winuser.RECT rc;
@@ -635,7 +669,7 @@ public class Rdp(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
                     }
                     else
                     {
-                        _log.Trace($"RDP:: Unable to connect to remote desktop for {target}");
+                        ReportRdpFailure(au, "Unable to connect to remote desktop");
                     }
                     if (Token.WaitHandle.WaitOne(2000)) Token.ThrowIfCancellationRequested();  
                     Cleanup(au, caption,process);
@@ -656,6 +690,25 @@ public class Rdp(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
                 _log.Error(e);
             }
         }
+    }
+
+    /// <summary>
+    /// Reports why the connection failed or ended, from the mstsc dialog text or a credential prompt shown again.
+    /// Must run before Cleanup, which dismisses the dialog.
+    /// </summary>
+    private void ReportRdpFailure(AutoItX3 au, string what)
+    {
+        var dialog = FindDialogWindow("Remote Desktop Connection");
+        var text = dialog == IntPtr.Zero ? null : au.WinGetText($"[HANDLE:0x{dialog.ToInt64():X}]");
+        var code = ErrorClassifier.FromText(text);
+        if (code == null && (Winuser.FindWindow("Credential Dialog Xaml Host", "Windows Security") != IntPtr.Zero
+                             || FindDialogWindow("Windows Security") != IntPtr.Zero))
+        {
+            // the dialog text is not readable, so a disabled or locked account looks the same as a wrong password
+            code = ErrorCode.WrongPassword;
+            text = "Credential prompt shown again, logon failed (wrong password, or account disabled/locked)";
+        }
+        ReportError(Handler.HandlerType.ToString(), code ?? ErrorCode.ConnectionFailed, $"{what}: {text?.Trim()}", _currentTarget);
     }
 
     public bool FindRdpWindow(string target,int timeout)

@@ -10,6 +10,7 @@ using Ghosts.Client.Infrastructure;
 using Ghosts.Client.Universal.Infrastructure;
 using Ghosts.Domain;
 using Ghosts.Domain.Code;
+using Ghosts.Domain.Messages.MesssagesForServer;
 using Newtonsoft.Json;
 
 namespace Ghosts.Client.Universal.Handlers;
@@ -42,7 +43,7 @@ public class Wmi(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
                     }
                     catch (Exception e)
                     {
-                        _log.Error(e);
+                        ReportError(Handler.HandlerType.ToString(), ErrorClassifier.FromException(e, ErrorCode.CredentialsMissing), e.Message, credFileArg.ToString());
                     }
                 }
 
@@ -92,7 +93,7 @@ public class Wmi(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
 
             if (_currentCreds == null)
             {
-                _log.Error("WMI:: No credentials supplied, either CredentialsFile or Credentials must be supplied in handler args, exiting.");
+                ReportError(Handler.HandlerType.ToString(), ErrorCode.CredentialsMissing, "No credentials supplied, either CredentialsFile or Credentials must be supplied in handler args");
                 return Task.CompletedTask;
             }
 
@@ -169,7 +170,7 @@ public class Wmi(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
 
         if (username == null || password == null)
         {
-            _log.Error($"WMI:: Missing username or password for credential key '{credKey}', skipping.");
+            ReportError(Handler.HandlerType.ToString(), ErrorCode.CredentialsMissing, $"Missing username or password for credential key '{credKey}'", hostIp);
             return;
         }
 
@@ -189,8 +190,7 @@ public class Wmi(Timeline entireTimeline, TimelineHandler timelineHandler, Cance
                     }
                     catch (Exception e)
                     {
-                        _log.Error($"WMI:: Unable to connect WMI session to host '{hostIp}', skipping.");
-                        _log.Error(e);
+                        ReportError(Handler.HandlerType.ToString(), ErrorClassifier.FromException(e, ErrorCode.ConnectionFailed), e.Message, hostIp);
                         return;  //unable to connect
                     }
                     //we are connected, execute the commands

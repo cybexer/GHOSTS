@@ -30,6 +30,25 @@ namespace Ghosts.Api.Infrastructure.Models
         public string Stats { get; set; }
     }
 
+    /// <summary>
+    /// A handler error reported by a client (ERROR| line), e.g. a wrong password or a missing file.
+    /// Code is a Ghosts.Domain ErrorCode name.
+    /// </summary>
+    [Table("history_errors")]
+    public class HistoryError
+    {
+        public int Id { get; set; }
+        public Guid MachineId { get; set; }
+        public DateTime CreatedUtc { get; set; }
+        public string Handler { get; set; }
+        public string Code { get; set; }
+        public string Message { get; set; }
+        public string Target { get; set; }
+    }
+
+    /// <summary>One machine's errors of one handler and code in the summary window, with the latest message.</summary>
+    public record MachineErrorSummary(Guid MachineId, string Handler, string Code, string Message, string Target, int Count, DateTime LastSeenUtc);
+
     public record HandlerActivityBucket(DateTime StartUtc, int Events);
 
     public record HandlerActivity(string Handler, int Events, int Machines, List<HandlerActivityBucket> Buckets);
