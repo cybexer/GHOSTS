@@ -14,10 +14,10 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>Ghosts.Client.Universal</RootNamespace>
 
-    <Version>9.3.7</Version>
-    <AssemblyVersion>9.3.7</AssemblyVersion>
-    <ReleaseVersion>9.3.7</ReleaseVersion>
-    <FileVersion>9.3.7</FileVersion>
+    <Version>9.3.8</Version>
+    <AssemblyVersion>9.3.8</AssemblyVersion>
+    <ReleaseVersion>9.3.8</ReleaseVersion>
+    <FileVersion>9.3.8</FileVersion>
 
     <SynchReleaseVersion>false</SynchReleaseVersion>
 
